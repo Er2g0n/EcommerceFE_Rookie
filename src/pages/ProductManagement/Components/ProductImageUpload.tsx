@@ -4,7 +4,7 @@ import type { UploadFile, UploadProps, GetProp } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
 import { ProductImage } from '../../../types/ProductManagement/ProductImage/ProductImage';
 import { Product } from '../../../types/ProductManagement/Product/Product';
-import { getImagesByProductCode } from '../../../services/ProductManagement/Product.Service/productService';
+import { getImagesByProductCode, updateProductImagesInCache } from '../../../services/ProductManagement/Product.Service/productService';
 
 type FileType = Parameters<GetProp<UploadProps, 'beforeUpload'>>[0];
 
@@ -19,47 +19,62 @@ const getBase64 = (file: FileType): Promise<string> =>
 interface ProductImageUploadProps {
   currentProduct: Product | null;
   onUploadSuccess?: (images: ProductImage[]) => void;
+  onRefresh?: () => void;
+  onImagesUpdated?: (productCode: string, images: ProductImage[]) => void;
 }
 
-const ProductImageUpload: React.FC<ProductImageUploadProps> = ({ currentProduct, onUploadSuccess }) => {
+const ProductImageUpload: React.FC<ProductImageUploadProps> = ({
+  currentProduct,
+  onUploadSuccess,
+  onRefresh,
+  onImagesUpdated,
+}) => {
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewImage, setPreviewImage] = useState('');
   const [fileList, setFileList] = useState<UploadFile[]>([]);
 
   // Fetch images from DB when editing product
-  useEffect(() => {
-    const fetchImages = async () => {
-      if (currentProduct?.productCode) {
-        try {
-          const response = await getImagesByProductCode(currentProduct.productCode);
-          if (response.code === '0' && response.data) {
-            const images = response.data as ProductImage[];
-            const mappedFiles = images.map((img, index) => ({
-              uid: img.id ? img.id.toString() : `-${index}`,
-              name: img.imagePath?.split('/').pop() || `Image ${index + 1}`,
-              status: 'done' as const,
-              url: img.imagePath,
-            }));
-            setFileList(mappedFiles);
+  const fetchImagesAfterUpload = async () => {
+    if (currentProduct?.productCode) {
+      try {
+        const response = await getImagesByProductCode(currentProduct.productCode);
+        if (response.code === '0' && response.data) {
+          const images = response.data as ProductImage[];
+          const mappedFiles = images.map((img, index) => ({
+            uid: img.id ? img.id.toString() : `-${index}`,
+            name: img.imagePath?.split('/').pop() || `Image ${index + 1}`,
+            status: 'done' as const,
+            url: img.imagePath,
+          }));
+          setFileList(mappedFiles);
 
-            if (onUploadSuccess) {
-              onUploadSuccess(images);
-            }
-          } else {
-            message.error('Failed to load product images');
-            setFileList([]);
+          if (onUploadSuccess) {
+            onUploadSuccess(images);
           }
-        } catch (error) {
-          message.error('Error fetching images: ' + (error instanceof Error ? error.message : 'Unknown error'));
-          setFileList([]);
-        }
-      } else {
-        setFileList([]); // Nếu chưa có productCode thì clear list
-      }
-    };
 
-    fetchImages();
-  }, [currentProduct, onUploadSuccess]);
+          if (onImagesUpdated) {
+            onImagesUpdated(currentProduct.productCode, images);
+          }
+
+          // Update the cache with the new images
+          await updateProductImagesInCache(currentProduct.productCode, images);
+
+          if (onRefresh) {
+            onRefresh();
+          }
+        } else {
+          message.error('Failed to load updated product images');
+        }
+      } catch (error) {
+        message.error('Error fetching updated images: ' + (error instanceof Error ? error.message : 'Unknown error'));
+      }
+    }
+  };
+
+  // Load images when the component mounts or currentProduct changes
+  useEffect(() => {
+    fetchImagesAfterUpload();
+  }, [currentProduct?.productCode]);
 
   // Preview logic
   const handlePreview = async (file: UploadFile) => {
@@ -70,7 +85,7 @@ const ProductImageUpload: React.FC<ProductImageUploadProps> = ({ currentProduct,
     setPreviewOpen(true);
   };
 
-  // Khi upload hoặc remove file
+  // When upload or remove file
   const handleChange: UploadProps['onChange'] = ({ fileList: newFileList }) => {
     setFileList(newFileList);
   };
@@ -86,7 +101,7 @@ const ProductImageUpload: React.FC<ProductImageUploadProps> = ({ currentProduct,
   return (
     <>
       <Upload
-        action="http://localhost:28977/api/ProductImage/SaveImage" // ✅ Dùng đúng API duy nhất
+        action="http://localhost:28977/api/ProductImage/SaveImage"
         listType="picture-card"
         fileList={fileList}
         onPreview={handlePreview}
@@ -119,8 +134,8 @@ const ProductImageUpload: React.FC<ProductImageUploadProps> = ({ currentProduct,
             .then(() => {
               message.success('Upload successful');
               onSuccess?.('ok');
-              // Sau khi upload thành công, tự reload lại hình nếu cần
-              // hoặc thêm ảnh mới vào fileList
+              // Re-fetch images after successful upload
+              fetchImagesAfterUpload();
             })
             .catch((error) => {
               message.error(error instanceof Error ? error.message : 'Upload failed');

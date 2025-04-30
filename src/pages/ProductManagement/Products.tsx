@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Card,
   Col,
@@ -52,9 +52,15 @@ const Products: React.FC = () => {
   const [brands, setBrands] = useState<
     { brandCode: string; brandName: string }[]
   >([]);
-  const [units, setUnits] = useState<{ uoMCode: string; uoMName: string }[]>(
-    []
-  );
+  const [units, setUnits] = useState<{ uoMCode: string; uoMName: string }[]>([]);
+  // Reference to the update function in ListProduct
+  const listProductRef = useRef<(productCode: string, images: ProductImage[]) => void>(() => {});
+
+  const handleImagesUpdated = (productCode: string, images: ProductImage[]) => {
+    if (listProductRef.current) {
+      listProductRef.current(productCode, images);
+    }
+  };
 
   useEffect(() => {
     const loadDropdownData = async () => {
@@ -81,7 +87,6 @@ const Products: React.FC = () => {
   };
 
   const handleEditProduct = (product: Product) => {
-    
     setIsEditing(true);
     setCurrentProduct(product);
     form.setFieldsValue({
@@ -93,7 +98,6 @@ const Products: React.FC = () => {
       uoMCode: product.uoMCode,
     });
     setIsModalOpen(true);
-    
   };
 
   const handleCancel = () => {
@@ -102,13 +106,17 @@ const Products: React.FC = () => {
     form.resetFields();
   };
 
+  const handleRefresh = () => {
+    setRefreshTrigger((prev) => prev + 1);
+  };
+
   const onFinish = async (values: FieldType) => {
     try {
       const product: Product = {
         id: isEditing && currentProduct ? currentProduct.id : undefined,
         productCode: isEditing ? values.productCode : "",
         productName: values.productName,
-        description: values.description ,
+        description: values.description,
         categoryCode: values.categoryCode,
         brandCode: values.brandCode,
         uoMCode: values.uoMCode,
@@ -221,16 +229,18 @@ const Products: React.FC = () => {
       key: "2",
       label: "Product Images",
       children: (
-        <ProductImageUpload 
+        <ProductImageUpload
           currentProduct={currentProduct}
           onUploadSuccess={(images) => {
             if (currentProduct) {
               setCurrentProduct({
                 ...currentProduct,
-                images: images
+                images: images,
               });
             }
           }}
+          onRefresh={handleRefresh}
+          onImagesUpdated={(productCode, images) => handleImagesUpdated(productCode, images)}
         />
       ),
       disabled: (currentProduct?.productCode != "" && currentProduct?.productCode != null && currentProduct?.productCode != undefined) ? false : true,
@@ -267,6 +277,7 @@ const Products: React.FC = () => {
             <ListProduct
               refreshTrigger={refreshTrigger}
               onEdit={handleEditProduct}
+              onImagesUpdated={(productCode, images) => handleImagesUpdated(productCode, images)}
             />
           </Card>
         </Col>
@@ -288,7 +299,7 @@ const Products: React.FC = () => {
           onFinishFailed={onFinishFailed}
           autoComplete="off"
         >
-          <Tabs defaultActiveKey="1" items={items}  />;
+          <Tabs defaultActiveKey="1" items={items} />;
         </Form>
       </Modal>
     </>

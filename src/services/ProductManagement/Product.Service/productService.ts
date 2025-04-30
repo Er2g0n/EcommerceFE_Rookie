@@ -1,10 +1,9 @@
 import { ResultService } from "../../../types/Base/ResultService";
 import { Product } from "../../../types/ProductManagement/Product/Product";
 import { ProductImage } from "../../../types/ProductManagement/ProductImage/ProductImage";
-import { PRODUCT_API_URL } from '../../apiConfig'; // chỉnh path đúng thư mục
 
-
-
+// Ensure this points to the correct backend API URL
+const PRODUCT_API_URL = "http://localhost:28977/api/Product";
 
 // Cache for storing fetched products
 let productCache: Product[] | null = null;
@@ -12,16 +11,70 @@ let productCache: Product[] | null = null;
 // Fetch all products
 export async function getAllProducts(options: { cache: boolean } = { cache: true }): Promise<ResultService<Product[]>> {
   if (options.cache && productCache) {
+    console.log("Returning cached products:", productCache);
     return { code: "0", message: "Success", data: productCache };
   }
 
-  const response = await fetch(PRODUCT_API_URL);
-  if (!response.ok) {
-    throw new Error('Error when calling API for Product');
+  try {
+    console.log("Fetching products from API:", PRODUCT_API_URL);
+    const response = await fetch(PRODUCT_API_URL);
+    if (!response.ok) {
+      throw new Error('Error when calling API for Product');
+    }
+
+    const result = (await response.json()) as ResultService<Product[]>;
+    
+    if (result.code === "0" && Array.isArray(result.data)) {
+      const productsWithImages = await Promise.all(
+        result.data.map(async (product) => {
+          try {
+            const imagesResult = await getImagesByProductCode(product.productCode);
+            if (imagesResult.code === "0" && Array.isArray(imagesResult.data)) {
+              console.log(`Images for product ${product.productCode}:`, imagesResult.data);
+              product.images = imagesResult.data;
+            } else {
+              console.log(`No images found for product ${product.productCode}`);
+              product.images = [];
+            }
+          } catch (error) {
+            console.error(`Error fetching images for product ${product.productCode}:`, error);
+            product.images = [];
+          }
+          return product;
+        })
+      );
+
+      result.data = productsWithImages;
+      productCache = productsWithImages;
+      console.log("Updated product cache:", productCache);
+    } else {
+      return {
+        code: result.code || "1",
+        message: result.message || "No products found",
+        data: [],
+      };
+    }
+
+    return result;
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : "Unknown error fetching products";
+    console.error("Error in getAllProducts:", errorMessage);
+    return {
+      code: "999",
+      message: errorMessage,
+      data: [],
+    };
   }
-  const result: ResultService<Product[]> = await response.json();
-  productCache = result.data;
-  return result;
+}
+
+// Update the product cache after image upload
+export async function updateProductImagesInCache(productCode: string, images: ProductImage[]): Promise<void> {
+  if (productCache) {
+    const index = productCache.findIndex((p) => p.productCode === productCode);
+    if (index !== -1) {
+      productCache[index] = { ...productCache[index], images };
+    }
+  }
 }
 
 // Fetch a product by ID
@@ -42,9 +95,8 @@ export async function getProductByCode(productCode: string): Promise<ResultServi
   return response.json();
 }
 
-
 // Fetch a product and its images by code
-export async function getImagesByProductCode(productCode: string): Promise<ResultService<ProductImage>> {
+export async function getImagesByProductCode(productCode: string): Promise<ResultService<ProductImage[]>> {
   const response = await fetch(`${PRODUCT_API_URL}/code/${encodeURIComponent(productCode)}/images`);
   if (!response.ok) {
     throw new Error(`Error fetching product and images with code ${productCode}`);
@@ -95,64 +147,20 @@ export async function deleteProductByDapper(productCode: string): Promise<Result
   return result;
 }
 
-// Save a product and its images (multipart/form-data)
-// export async function saveProductAndImage(productDto: { product: Product, images: File[], primaryImageIndex?: number }): Promise<ResultService<Product>> {
-//   const formData = new FormData();
-  
-//   // Append product data
-//   formData.append("ProductCode", productDto.product.productCode || "");
-//   formData.append("ProductName", productDto.product.productName);
-//   formData.append("Description", productDto.product.description || "");
-//   formData.append("CategoryCode", productDto.product.categoryCode || "");
-//   formData.append("BrandCode", productDto.product.brandCode || "");
-//   formData.append("UoMCode", productDto.product.uoMCode || "");
-  
-//   // Append images
-//   // productDto.images.forEach((image, index) => {
-//   //   formData.append("Images", image);
-//   // });
-
-//   // Append primary image index if provided
-//   if (productDto.primaryImageIndex !== undefined) {
-//     formData.append("PrimaryImageIndex", productDto.primaryImageIndex.toString());
-//   }
-
-//   const response = await fetch(`${PRODUCT_API_URL}/SaveProductAndImage`, {
-//     method: "POST",
-//     body: formData,
-//   });
-
-//   if (!response.ok) {
-//     throw new Error("Error saving product and images");
-//   }
-//   const result = await response.json();
-//   if (result.code === "0" && productCache) {
-//     const index = productCache.findIndex((p) => p.productCode === productDto.product.productCode);
-//     if (index !== -1) {
-//       productCache[index] = result.data.products[0];
-//     } else {
-//       productCache.push(result.data.products[0]);
-//     }
-//   }
-//   return result;
-// }
-
-// Delete a product and its images
-export async function deleteProductAndImage(productImages: { refProductCode: string, imagePath: string, isPrimary: boolean }[]): Promise<ResultService<void>> {
-  const response = await fetch(`${PRODUCT_API_URL}/Delete_ProductAndImage`, {
+// Delete a product and its images by productCode
+export async function deleteProductAndImage(productCode: string): Promise<ResultService<void>> {
+  const response = await fetch(`${PRODUCT_API_URL}/Delete_ProductAndImage/${encodeURIComponent(productCode)}`, {
     method: "DELETE",
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify(productImages),
   });
 
   if (!response.ok) {
-    throw new Error("Error deleting product and images");
+    throw new Error(`Error deleting product and images with code ${productCode}`);
   }
   const result = await response.json();
-  if (result.code === "0" && productCache && productImages.length > 0) {
-    const productCode = productImages[0].refProductCode;
+  if (result.code === "0" && productCache) {
     productCache = productCache.filter((p) => p.productCode !== productCode);
   }
   return result;

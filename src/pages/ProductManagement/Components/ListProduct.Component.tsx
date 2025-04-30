@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { TableColumnsType, Table, TableProps, Button, Space, ConfigProvider, Popconfirm, Image } from "antd";
+import { useEffect, useState, useRef } from "react";
+import { TableColumnsType, Table, TableProps, Button, Space, ConfigProvider, Popconfirm, Image, message } from "antd";
 import { EditOutlined, DeleteOutlined, QuestionCircleOutlined } from "@ant-design/icons";
 import { useButtonStyles } from "../../../hooks/useButtonStyles";
 import { getAllProducts, deleteProductByDapper } from "../../../services/ProductManagement/Product.Service/productService";
@@ -7,13 +7,15 @@ import { Product } from "../../../types/ProductManagement/Product/Product";
 import { getAllBrands } from "../../../services/ProductClassification/Brand.Service/brandService";
 import { getAllProductCategories } from "../../../services/ProductClassification/Category.Service/productCategoryService";
 import { getAllUnitsOfMeasure } from "../../../services/ProductClassification/UnitOfMeasure.Service/unitOfMeasureService";
+import { ProductImage } from "../../../types/ProductManagement/ProductImage/ProductImage";
 
 interface ListProductProps {
   refreshTrigger: number;
   onEdit: (product: Product) => void;
+  onImagesUpdated?: (productCode: string, images: ProductImage[]) => void;
 }
 
-const ListProduct: React.FC<ListProductProps> = ({ refreshTrigger, onEdit }) => {
+const ListProduct: React.FC<ListProductProps> = ({ refreshTrigger, onEdit, onImagesUpdated }) => {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -21,12 +23,13 @@ const ListProduct: React.FC<ListProductProps> = ({ refreshTrigger, onEdit }) => 
   const [brands, setBrands] = useState<{ brandCode: string; brandName: string }[]>([]);
   const [categories, setCategories] = useState<{ categoryCode: string; categoryName: string }[]>([]);
   const [uoMs, setUoMs] = useState<{ uoMCode: string; uoMName: string }[]>([]);
-
+  // Define the ref to store the updateProductImages function
+  const onImagesUpdatedRef = useRef<(productCode: string, images: ProductImage[]) => void>(onImagesUpdated);
 
   const handleDelete = async (record: Product) => {
     try {
       if (!record.productCode) {
-        console.error("Missing productCode for delete");
+        message.error("Missing productCode for delete");
         return;
       }
 
@@ -34,12 +37,12 @@ const ListProduct: React.FC<ListProductProps> = ({ refreshTrigger, onEdit }) => 
 
       if (result.code === "0") {
         setProducts((prev) => prev.filter((p) => p.productCode !== record.productCode));
-        console.log(`Deleted product: ${record.productCode}`);
+        message.success(`Deleted product: ${record.productCode}`);
       } else {
-        console.error(`Delete failed: ${result.message}`);
+        message.error(`Delete failed: ${result.message}`);
       }
     } catch (error) {
-      console.error("Error deleting product:", error);
+      message.error("Error deleting product: " + (error instanceof Error ? error.message : "Unknown error"));
     }
   };
 
@@ -56,15 +59,18 @@ const ListProduct: React.FC<ListProductProps> = ({ refreshTrigger, onEdit }) => 
     },
     {
       title: "Image",
-      dataIndex: "productImageUrl",
+      dataIndex: "images",
       width: "20%",
-      render: (_, record) => (
-        <Image
-          width={120}
-          // src={record.productImageUrl || "https://via.placeholder.com/120x120.png?text=No+Image"}
-          alt={record.productName}
-        />
-      ),
+      render: (images: ProductImage[], record) => {
+        const firstImage = images && images.length > 0 ? images[0].imagePath : null;
+        return (
+          <Image
+            width={120}
+            src={firstImage || "https://via.placeholder.com/120x120.png?text=No+Image"}
+            alt={record.productName}
+          />
+        );
+      },
     },
     {
       title: "Product Name",
@@ -104,7 +110,6 @@ const ListProduct: React.FC<ListProductProps> = ({ refreshTrigger, onEdit }) => 
         return brand ? brand.brandName : brandCode;
       },
     },
-    
     {
       title: "Unit of Measure",
       dataIndex: "uoMCode",
@@ -152,16 +157,31 @@ const ListProduct: React.FC<ListProductProps> = ({ refreshTrigger, onEdit }) => 
     },
   ];
 
+  // Function to update a product's images in the state
+  const updateProductImages = (productCode: string, images: ProductImage[]) => {
+    setProducts((prevProducts) =>
+      prevProducts.map((product) =>
+        product.productCode === productCode ? { ...product, images } : product
+      )
+    );
+  };
+
+  useEffect(() => {
+    if (onImagesUpdated) {
+      onImagesUpdatedRef.current = updateProductImages;
+    }
+  }, [onImagesUpdated]);
+
   useEffect(() => {
     const getProducts = async () => {
       try {
         const [productResult, brandResult, categoryResult, unitOfMeasureResult] = await Promise.all([
-          getAllProducts(),
+          getAllProducts({ cache: false }),
           getAllBrands(),
           getAllProductCategories(),
-          getAllUnitsOfMeasure({ cache: false }), // nếu hàm cần tham số
+          getAllUnitsOfMeasure({ cache: false }),
         ]);
-  
+
         setProducts(productResult.data ?? []);
         setBrands(brandResult.data ?? []);
         setCategories(categoryResult.data ?? []);
@@ -176,10 +196,9 @@ const ListProduct: React.FC<ListProductProps> = ({ refreshTrigger, onEdit }) => 
         setLoading(false);
       }
     };
-  
+
     getProducts();
   }, [refreshTrigger]);
-  
 
   if (loading) return <div>Loading...</div>;
   if (error) return <div>{error}</div>;
@@ -194,7 +213,6 @@ const ListProduct: React.FC<ListProductProps> = ({ refreshTrigger, onEdit }) => 
       console.log("Selected Rows Data:", selectedRows);
     },
   };
-
 
   return (
     <Table<Product>
@@ -211,6 +229,3 @@ const ListProduct: React.FC<ListProductProps> = ({ refreshTrigger, onEdit }) => 
 };
 
 export { ListProduct };
-
-
-
