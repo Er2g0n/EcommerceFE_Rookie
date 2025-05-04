@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import {
   Card,
   Col,
@@ -10,9 +10,10 @@ import {
   Input,
   Select,
   message,
-  Typography,
   TabsProps,
   Tabs,
+  DatePicker,
+  InputNumber,
 } from "antd";
 import { ListProduct } from "../../pages/ProductManagement/Components/ListProduct.Component";
 import { PlusOutlined } from "@ant-design/icons";
@@ -24,6 +25,8 @@ import { getAllProductCategories } from "../../../src/services/ProductClassifica
 import { getAllUnitsOfMeasure } from "../../services/ProductClassification/UnitOfMeasure.Service/unitOfMeasureService";
 import { ProductImage } from "../../types/ProductManagement/ProductImage/ProductImage";
 import ProductImageUpload from './Components/ProductImageUpload';
+import { createPrice,Price } from "../../services/ProductManagement/Price.Service/priceService";
+import moment from "moment";
 
 const { Option } = Select;
 
@@ -36,6 +39,13 @@ type FieldType = {
   brandName?: string;
   uoMCode?: string;
   image?: ProductImage[];
+  priceCost?: number;
+  priceSale?: number;
+  priceVAT?: number;
+  totalAmount?: number;
+  startDate?: moment.Moment;
+  endDate?: moment.Moment;
+  applyDate?: moment.Moment;
 };
 
 const Products: React.FC = () => {
@@ -53,14 +63,6 @@ const Products: React.FC = () => {
     { brandCode: string; brandName: string }[]
   >([]);
   const [units, setUnits] = useState<{ uoMCode: string; uoMName: string }[]>([]);
-  // Reference to the update function in ListProduct
-  const listProductRef = useRef<(productCode: string, images: ProductImage[]) => void>(() => {});
-
-  const handleImagesUpdated = (productCode: string, images: ProductImage[]) => {
-    if (listProductRef.current) {
-      listProductRef.current(productCode, images);
-    }
-  };
 
   useEffect(() => {
     const loadDropdownData = async () => {
@@ -79,10 +81,59 @@ const Products: React.FC = () => {
     loadDropdownData();
   }, []);
 
+
+  // useEffect(() => {
+  //   const fetchPrice = async () => {
+  //     if (isEditing && currentProduct?.productCode) {
+  //       try {
+  //         const priceResult = await getPriceByProductCode(currentProduct.productCode);
+  //         if (priceResult.code === "0" && priceResult.data) {
+  //           const price = priceResult.data;
+  //           form.setFieldsValue({
+  //             priceCost: price.priceCost,
+  //             priceSale: price.priceSale,
+  //             priceVAT: price.priceVAT,
+  //             totalAmount: price.totalAmount,
+  //             startDate: price.startDate ? moment(price.startDate) : null,
+  //             endDate: price.endDate ? moment(price.endDate) : null,
+  //             applyDate: price.applyDate ? moment(price.applyDate) : null,
+  //           });
+  //           setCurrentProduct((prev) => prev ? { ...prev, price } : null);
+  //         }
+  //       } catch (error) {
+  //         console.error("Error fetching price:", error);
+  //       }
+  //     } else {
+  //       // Clear price fields when not editing
+  //       form.setFieldsValue({
+  //         priceCost: undefined,
+  //         priceSale: undefined,
+  //         priceVAT: undefined,
+  //         totalAmount: undefined,
+  //         startDate: null,
+  //         endDate: null,
+  //         applyDate: null,
+  //       });
+  //     }
+  //   };
+
+  //   fetchPrice();
+  // }, [isEditing, currentProduct, form]);
+
   const handleAddProduct = () => {
     setIsEditing(false);
     setCurrentProduct(null);
     form.resetFields();
+    // Explicitly clear price fields when adding a new product
+    form.setFieldsValue({
+      priceCost: undefined,
+      priceSale: undefined,
+      priceVAT: undefined,
+      totalAmount: undefined,
+      startDate: null,
+      endDate: null,
+      applyDate: null,
+    });
     setIsModalOpen(true);
   };
 
@@ -124,21 +175,54 @@ const Products: React.FC = () => {
         updatedBy: isEditing ? "admin" : undefined,
       };
 
-      const result = await saveProductByDapper(product);
+      const productResult = await saveProductByDapper(product);
 
-      if (result.code === "0") {
+      if (productResult.code === "0") {
+        const savedProduct = productResult.data;
         message.success(
           isEditing
             ? "Product updated successfully"
             : "Product added successfully"
         );
+
+        if (
+          values.priceCost ||
+          values.priceSale ||
+          values.priceVAT ||
+          values.totalAmount ||
+          values.startDate ||
+          values.endDate ||
+          values.applyDate
+        ) {
+          const price: Price = {
+            productCode: savedProduct?.productCode || values.productCode,
+            priceCost: values.priceCost,
+            priceSale: values.priceSale,
+            priceVAT: values.priceVAT,
+            totalAmount: values.totalAmount,
+            startDate: values.startDate ? values.startDate.format("YYYY-MM-DD") : undefined,
+            endDate: values.endDate ? values.endDate.format("YYYY-MM-DD") : undefined,
+            applyDate: values.applyDate ? values.applyDate.format("YYYY-MM-DD") : undefined,
+            createdBy: "admin",
+            updatedBy: isEditing ? "admin" : undefined,
+            priceCode: ""
+          };
+
+          const priceResult = await createPrice(price);
+          if (priceResult.code === "0") {
+            message.success("Price saved successfully");
+          } else {
+            message.error(`Failed to save price: ${priceResult.message}`);
+          }
+        }
+
         setRefreshTrigger((prev) => prev + 1);
         setIsModalOpen(false);
         setCurrentProduct(null);
         form.resetFields();
       } else {
         message.error(
-          `Failed to ${isEditing ? "update" : "add"} product: ${result.message}`
+          `Failed to ${isEditing ? "update" : "add"} product: ${productResult.message}`
         );
       }
     } catch (error) {
@@ -148,8 +232,7 @@ const Products: React.FC = () => {
     }
   };
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const onFinishFailed = (errorInfo: any) => {
+  const onFinishFailed = (errorInfo: unknown) => {
     console.log("Failed:", errorInfo);
   };
 
@@ -207,21 +290,6 @@ const Products: React.FC = () => {
           <Form.Item<FieldType> label="Description" name="description">
             <Input.TextArea placeholder="Optional description" />
           </Form.Item>
-          <Form.Item wrapperCol={{ offset: 8, span: 16 }}>
-            <Button type="primary" htmlType="submit">
-              Submit
-            </Button>
-            <Button danger style={{ marginLeft: 8 }} onClick={handleCancel}>
-              Cancel
-            </Button>
-          </Form.Item>
-          <Form.Item noStyle shouldUpdate>
-            {() => (
-              <Typography>
-                <pre>{JSON.stringify(form.getFieldsValue(), null, 2)}</pre>
-              </Typography>
-            )}
-          </Form.Item>
         </>
       ),
     },
@@ -240,16 +308,74 @@ const Products: React.FC = () => {
             }
           }}
           onRefresh={handleRefresh}
-          onImagesUpdated={(productCode, images) => handleImagesUpdated(productCode, images)}
         />
       ),
-      disabled: (currentProduct?.productCode != "" && currentProduct?.productCode != null && currentProduct?.productCode != undefined) ? false : true,
+      disabled: !(
+        currentProduct?.productCode &&
+        currentProduct?.productCode !== "" &&
+        currentProduct?.productCode !== null &&
+        currentProduct?.productCode !== undefined
+      ),
     },
     {
       key: "3",
       label: "Product Pricing",
-      children: "Content of Tab Pane 3",
-      disabled: (currentProduct?.productCode != "" && currentProduct?.productCode != null && currentProduct?.productCode != undefined) ? false : true,
+      children: (
+        <>
+          <Form.Item<FieldType>
+            label="Price Cost"
+            name="priceCost"
+            rules={[{ type: "number", min: 0, message: "Price Cost must be a positive number!" }]}
+          >
+            <InputNumber style={{ width: "100%" }} placeholder="Enter cost price" />
+          </Form.Item>
+          <Form.Item<FieldType>
+            label="Price Sale"
+            name="priceSale"
+            rules={[{ type: "number", min: 0, message: "Price Sale must be a positive number!" }]}
+          >
+            <InputNumber style={{ width: "100%" }} placeholder="Enter sale price" />
+          </Form.Item>
+          <Form.Item<FieldType>
+            label="Price VAT"
+            name="priceVAT"
+            rules={[{ type: "number", min: 0, message: "Price VAT must be a positive number!" }]}
+          >
+            <InputNumber style={{ width: "100%" }} placeholder="Enter VAT price" />
+          </Form.Item>
+          <Form.Item<FieldType>
+            label="Total Amount"
+            name="totalAmount"
+            rules={[{ type: "number", min: 0, message: "Total Amount must be a positive number!" }]}
+          >
+            <InputNumber style={{ width: "100%" }} placeholder="Enter total amount" />
+          </Form.Item>
+          <Form.Item<FieldType>
+            label="Start Date"
+            name="startDate"
+          >
+            <DatePicker style={{ width: "100%" }} placeholder="Select date" />
+          </Form.Item>
+          <Form.Item<FieldType>
+            label="End Date"
+            name="endDate"
+          >
+            <DatePicker style={{ width: "100%" }} placeholder="Select date" />
+          </Form.Item>
+          <Form.Item<FieldType>
+            label="Apply Date"
+            name="applyDate"
+          >
+            <DatePicker style={{ width: "100%" }} placeholder="Select date" />
+          </Form.Item>
+        </>
+      ),
+      disabled: !(
+        currentProduct?.productCode &&
+        currentProduct?.productCode !== "" &&
+        currentProduct?.productCode !== null &&
+        currentProduct?.productCode !== undefined
+      ),
     },
   ];
 
@@ -260,9 +386,7 @@ const Products: React.FC = () => {
           <Card
             title="Products Management"
             extra={
-              <ConfigProvider
-                button={{ className: styles.gradientButtonGreen }}
-              >
+              <ConfigProvider button={{ className: styles.gradientButtonGreen }}>
                 <Button
                   type="primary"
                   icon={<PlusOutlined />}
@@ -274,11 +398,7 @@ const Products: React.FC = () => {
             }
             variant="borderless"
           >
-            <ListProduct
-              refreshTrigger={refreshTrigger}
-              onEdit={handleEditProduct}
-              onImagesUpdated={(productCode, images) => handleImagesUpdated(productCode, images)}
-            />
+            <ListProduct refreshTrigger={refreshTrigger} onEdit={handleEditProduct} />
           </Card>
         </Col>
       </Row>
@@ -287,7 +407,14 @@ const Products: React.FC = () => {
         title={isEditing ? "Edit Product" : "Add New Product"}
         open={isModalOpen}
         onCancel={handleCancel}
-        footer={null}
+        footer={[
+          <Button key="cancel" danger onClick={handleCancel}>
+            Cancel
+          </Button>,
+          <Button key="submit" type="primary" onClick={() => form.submit()}>
+            {isEditing ? "Update Product" : "Add Product"}
+          </Button>,
+        ]}
       >
         <Form
           form={form}
@@ -299,7 +426,7 @@ const Products: React.FC = () => {
           onFinishFailed={onFinishFailed}
           autoComplete="off"
         >
-          <Tabs defaultActiveKey="1" items={items} />;
+          <Tabs defaultActiveKey="1" items={items} />
         </Form>
       </Modal>
     </>

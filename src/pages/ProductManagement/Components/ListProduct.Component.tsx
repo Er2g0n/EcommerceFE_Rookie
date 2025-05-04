@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import { TableColumnsType, Table, TableProps, Button, Space, ConfigProvider, Popconfirm, Image, message } from "antd";
 import { EditOutlined, DeleteOutlined, QuestionCircleOutlined } from "@ant-design/icons";
 import { useButtonStyles } from "../../../hooks/useButtonStyles";
@@ -12,10 +12,9 @@ import { ProductImage } from "../../../types/ProductManagement/ProductImage/Prod
 interface ListProductProps {
   refreshTrigger: number;
   onEdit: (product: Product) => void;
-  onImagesUpdated?: (productCode: string, images: ProductImage[]) => void;
 }
 
-const ListProduct: React.FC<ListProductProps> = ({ refreshTrigger, onEdit, onImagesUpdated }) => {
+const ListProduct: React.FC<ListProductProps> = ({ refreshTrigger, onEdit }) => {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -23,8 +22,6 @@ const ListProduct: React.FC<ListProductProps> = ({ refreshTrigger, onEdit, onIma
   const [brands, setBrands] = useState<{ brandCode: string; brandName: string }[]>([]);
   const [categories, setCategories] = useState<{ categoryCode: string; categoryName: string }[]>([]);
   const [uoMs, setUoMs] = useState<{ uoMCode: string; uoMName: string }[]>([]);
-  // Define the ref to store the updateProductImages function
-  const onImagesUpdatedRef = useRef<(productCode: string, images: ProductImage[]) => void>(onImagesUpdated);
 
   const handleDelete = async (record: Product) => {
     try {
@@ -63,6 +60,7 @@ const ListProduct: React.FC<ListProductProps> = ({ refreshTrigger, onEdit, onIma
       width: "20%",
       render: (images: ProductImage[], record) => {
         const firstImage = images && images.length > 0 ? images[0].imagePath : null;
+        console.log(`Rendering image for product ${record.productCode}:`, firstImage);
         return (
           <Image
             width={120}
@@ -83,14 +81,12 @@ const ListProduct: React.FC<ListProductProps> = ({ refreshTrigger, onEdit, onIma
       onFilter: (value, record) => record.productName === value,
     },
     {
-      title: "Description",
-      dataIndex: "description",
-      width: "20%",
-      filters: products.map((product) => ({
-        text: product.productName,
-        value: product.productName,
-      })),
-      onFilter: (value, record) => record.productName === value,
+      title: "Latest Price Sale",
+      dataIndex: ["price"],
+      width: "10%",
+      render: (_, record) => {
+        return record.price?.priceSale ? `$${record.price.priceSale}` : "N/A";
+      }
     },
     {
       title: "Category",
@@ -157,31 +153,18 @@ const ListProduct: React.FC<ListProductProps> = ({ refreshTrigger, onEdit, onIma
     },
   ];
 
-  // Function to update a product's images in the state
-  const updateProductImages = (productCode: string, images: ProductImage[]) => {
-    setProducts((prevProducts) =>
-      prevProducts.map((product) =>
-        product.productCode === productCode ? { ...product, images } : product
-      )
-    );
-  };
-
-  useEffect(() => {
-    if (onImagesUpdated) {
-      onImagesUpdatedRef.current = updateProductImages;
-    }
-  }, [onImagesUpdated]);
-
   useEffect(() => {
     const getProducts = async () => {
       try {
+        console.log("Fetching products with refreshTrigger:", refreshTrigger);
         const [productResult, brandResult, categoryResult, unitOfMeasureResult] = await Promise.all([
-          getAllProducts({ cache: false }),
+          getAllProducts({ cache: false }), // Disable cache to ensure fresh data
           getAllBrands(),
           getAllProductCategories(),
           getAllUnitsOfMeasure({ cache: false }),
         ]);
 
+        console.log("Fetched products:", productResult.data);
         setProducts(productResult.data ?? []);
         setBrands(brandResult.data ?? []);
         setCategories(categoryResult.data ?? []);
@@ -192,6 +175,7 @@ const ListProduct: React.FC<ListProductProps> = ({ refreshTrigger, onEdit, onIma
           error instanceof Error
             ? error.message
             : "Có lỗi xảy ra khi tải dữ liệu";
+        console.error("Error in getProducts:", errorMessage);
         setError(errorMessage);
         setLoading(false);
       }

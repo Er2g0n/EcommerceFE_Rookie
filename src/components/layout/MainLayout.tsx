@@ -61,16 +61,7 @@ const menuItems = [
         icon: <ShoppingOutlined />,
         label: <Link to="/products">Products</Link>,
       },
-      // {
-      //   key: "/categories",
-      //   icon: <TagsOutlined />,
-      //   label: <Link to="/categories">Categories</Link>,
-      // },
-      // {
-      //   key: "/unit-of-measures",
-      //   icon: <CalculatorOutlined />,
-      //   label: <Link to="/unitOfMeasures">UnitOfMeasures</Link>,
-      // },
+
     ],
   },
   {

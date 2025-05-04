@@ -7,7 +7,7 @@ import UnitOfMeasures from "../pages/ProductClassification/UnitOfMeasures"
 
 import Products from "../pages/ProductManagement/Products";
 import Cart from "../pages/Cart";
-import Login from "../pages/Admin/login";
+import Login from "../pages/Admin/Login";
 
 export const router = createBrowserRouter([
   {

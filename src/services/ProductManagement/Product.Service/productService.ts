@@ -1,9 +1,8 @@
 import { ResultService } from "../../../types/Base/ResultService";
 import { Product } from "../../../types/ProductManagement/Product/Product";
 import { ProductImage } from "../../../types/ProductManagement/ProductImage/ProductImage";
-
-// Ensure this points to the correct backend API URL
-const PRODUCT_API_URL = "http://localhost:28977/api/Product";
+import { PRODUCT_API_URL } from "../../apiConfig"; // Ensure this points to the correct backend API URL
+import { getLatestPriceByProductCode } from "../Price.Service/priceService";
 
 // Cache for storing fetched products
 let productCache: Product[] | null = null;
@@ -25,27 +24,36 @@ export async function getAllProducts(options: { cache: boolean } = { cache: true
     const result = (await response.json()) as ResultService<Product[]>;
     
     if (result.code === "0" && Array.isArray(result.data)) {
-      const productsWithImages = await Promise.all(
+      const productsWithDetails = await Promise.all(
         result.data.map(async (product) => {
           try {
-            const imagesResult = await getImagesByProductCode(product.productCode);
+            const [imagesResult, priceResult] = await Promise.all([
+              getImagesByProductCode(product.productCode),
+              getLatestPriceByProductCode(product.productCode),
+            ]);
+            // Gán hình ảnh
             if (imagesResult.code === "0" && Array.isArray(imagesResult.data)) {
-              console.log(`Images for product ${product.productCode}:`, imagesResult.data);
               product.images = imagesResult.data;
             } else {
-              console.log(`No images found for product ${product.productCode}`);
               product.images = [];
             }
+            // Gán giá
+            if (priceResult.code === "0" && priceResult.data) {
+              product.price = priceResult.data;
+            } else {
+              product.price = undefined;
+            }
           } catch (error) {
-            console.error(`Error fetching images for product ${product.productCode}:`, error);
+            console.error(`Error fetching details for product ${product.productCode}:`, error);
             product.images = [];
+            product.price = undefined;
           }
           return product;
         })
       );
 
-      result.data = productsWithImages;
-      productCache = productsWithImages;
+      result.data = productsWithDetails;
+      productCache = productsWithDetails;
       console.log("Updated product cache:", productCache);
     } else {
       return {
@@ -66,7 +74,6 @@ export async function getAllProducts(options: { cache: boolean } = { cache: true
     };
   }
 }
-
 // Update the product cache after image upload
 export async function updateProductImagesInCache(productCode: string, images: ProductImage[]): Promise<void> {
   if (productCache) {
@@ -147,26 +154,3 @@ export async function deleteProductByDapper(productCode: string): Promise<Result
   return result;
 }
 
-// Delete a product and its images by productCode
-export async function deleteProductAndImage(productCode: string): Promise<ResultService<void>> {
-  const response = await fetch(`${PRODUCT_API_URL}/Delete_ProductAndImage/${encodeURIComponent(productCode)}`, {
-    method: "DELETE",
-    headers: {
-      "Content-Type": "application/json",
-    },
-  });
-
-  if (!response.ok) {
-    throw new Error(`Error deleting product and images with code ${productCode}`);
-  }
-  const result = await response.json();
-  if (result.code === "0" && productCache) {
-    productCache = productCache.filter((p) => p.productCode !== productCode);
-  }
-  return result;
-}
-
-// Clear the product cache
-export function clearProductCache(): void {
-  productCache = null;
-}

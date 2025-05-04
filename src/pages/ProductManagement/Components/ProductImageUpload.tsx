@@ -101,7 +101,7 @@ const ProductImageUpload: React.FC<ProductImageUploadProps> = ({
   return (
     <>
       <Upload
-        action="http://localhost:28977/api/ProductImage/SaveImage"
+        action="https://localhost:7001/api/ProductImage/SaveImage"
         listType="picture-card"
         fileList={fileList}
         onPreview={handlePreview}
@@ -120,7 +120,7 @@ const ProductImageUpload: React.FC<ProductImageUploadProps> = ({
           formData.append('text', currentProduct.productCode);
           formData.append('formFiles', file as File);
 
-          fetch('http://localhost:28977/api/ProductImage/SaveImage', {
+          fetch('https://localhost:7001/api/ProductImage/SaveImage', {
             method: 'POST',
             body: formData,
           })
