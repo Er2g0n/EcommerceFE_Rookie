@@ -20,6 +20,7 @@ const ListBrand: React.FC<ListBrandProps> = ({ refreshTrigger, onEdit }) => {
   const handleDelete = async (record: Brand) => {
     try {
       if (!record.brandCode) {
+        
         console.error("Missing brandCode for delete");
         return;
       }

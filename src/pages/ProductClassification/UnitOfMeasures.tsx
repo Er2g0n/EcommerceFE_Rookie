@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { Card, Col, Row, Button, ConfigProvider, Modal, Form, Input, message } from 'antd';
+import { Card, Col, Row, Button, ConfigProvider, Modal, Form, Input } from 'antd';
 import ListUnitOfMeasure from './Components/ListUnitOfMeasure.Component';
 import { PlusOutlined } from '@ant-design/icons';
 import { useButtonStyles } from '../../../src/hooks/useButtonStyles';
 import { saveUnitOfMeasureByDapper } from '../../services/ProductClassification/UnitOfMeasure.Service/unitOfMeasureService';
 import { UnitOfMeasure } from '../../types/ProductClassification/UnitOfMeasure/UnitOfMeasure';
+import useNotification from '../../../src/hooks/useNotification'; // Import the new hook
 
 type FieldType = {
   uoMCode: string;
@@ -19,6 +20,7 @@ const UnitOfMeasures: React.FC = () => {
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [isEditing, setIsEditing] = useState(false);
   const [currentUnit, setCurrentUnit] = useState<UnitOfMeasure | null>(null);
+  const { notify,notifyError, contextHolder } = useNotification(); // Use the notification hook
 
   const handleAddUnit = () => {
     setIsEditing(false);
@@ -57,17 +59,19 @@ const UnitOfMeasures: React.FC = () => {
 
       const result = await saveUnitOfMeasureByDapper(unit);
 
+      notify(result, {
+        successMessage: isEditing ? 'Unit of measure updated successfully' : 'Unit of measure added successfully',
+        errorMessage: `Failed to ${isEditing ? 'update' : 'add'} unit of measure`,
+      });
+
       if (result.code === "0") {
-        message.success(isEditing ? 'Unit of measure updated successfully' : 'Unit of measure added successfully');
         setRefreshTrigger((prev) => prev + 1);
         setIsModalOpen(false);
         setCurrentUnit(null);
         form.resetFields();
-      } else {
-        message.error(`Failed to ${isEditing ? 'update' : 'add'} unit of measure: ${result.message}`);
       }
     } catch (error) {
-      message.error('Error: ' + (error instanceof Error ? error.message : 'Unknown error'));
+      notifyError('Error: ' + (error instanceof Error ? error.message : 'Unknown error'));
     }
   };
 
@@ -77,6 +81,7 @@ const UnitOfMeasures: React.FC = () => {
 
   return (
     <>
+      {contextHolder} {/* Add contextHolder to render notifications */}
       <Row gutter={24}>
         <Col span={24}>
           <Card

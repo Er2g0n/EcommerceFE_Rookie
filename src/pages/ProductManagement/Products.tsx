@@ -9,7 +9,6 @@ import {
   Form,
   Input,
   Select,
-  message,
   TabsProps,
   Tabs,
   DatePicker,
@@ -25,8 +24,9 @@ import { getAllProductCategories } from "../../../src/services/ProductClassifica
 import { getAllUnitsOfMeasure } from "../../services/ProductClassification/UnitOfMeasure.Service/unitOfMeasureService";
 import { ProductImage } from "../../types/ProductManagement/ProductImage/ProductImage";
 import ProductImageUpload from './Components/ProductImageUpload';
-import { createPrice,Price } from "../../services/ProductManagement/Price.Service/priceService";
+import { createPrice, Price } from "../../services/ProductManagement/Price.Service/priceService";
 import moment from "moment";
+import useNotification from '../../../src/hooks/useNotification'; // Import the notification hook
 
 const { Option } = Select;
 
@@ -55,6 +55,7 @@ const Products: React.FC = () => {
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [isEditing, setIsEditing] = useState(false);
   const [currentProduct, setCurrentProduct] = useState<Product | null>(null);
+  const { notify, notifyError, contextHolder } = useNotification(); // Use the notification hook
 
   const [categories, setCategories] = useState<
     { categoryCode: string; categoryName: string }[]
@@ -80,45 +81,6 @@ const Products: React.FC = () => {
     };
     loadDropdownData();
   }, []);
-
-
-  // useEffect(() => {
-  //   const fetchPrice = async () => {
-  //     if (isEditing && currentProduct?.productCode) {
-  //       try {
-  //         const priceResult = await getPriceByProductCode(currentProduct.productCode);
-  //         if (priceResult.code === "0" && priceResult.data) {
-  //           const price = priceResult.data;
-  //           form.setFieldsValue({
-  //             priceCost: price.priceCost,
-  //             priceSale: price.priceSale,
-  //             priceVAT: price.priceVAT,
-  //             totalAmount: price.totalAmount,
-  //             startDate: price.startDate ? moment(price.startDate) : null,
-  //             endDate: price.endDate ? moment(price.endDate) : null,
-  //             applyDate: price.applyDate ? moment(price.applyDate) : null,
-  //           });
-  //           setCurrentProduct((prev) => prev ? { ...prev, price } : null);
-  //         }
-  //       } catch (error) {
-  //         console.error("Error fetching price:", error);
-  //       }
-  //     } else {
-  //       // Clear price fields when not editing
-  //       form.setFieldsValue({
-  //         priceCost: undefined,
-  //         priceSale: undefined,
-  //         priceVAT: undefined,
-  //         totalAmount: undefined,
-  //         startDate: null,
-  //         endDate: null,
-  //         applyDate: null,
-  //       });
-  //     }
-  //   };
-
-  //   fetchPrice();
-  // }, [isEditing, currentProduct, form]);
 
   const handleAddProduct = () => {
     setIsEditing(false);
@@ -177,13 +139,13 @@ const Products: React.FC = () => {
 
       const productResult = await saveProductByDapper(product);
 
+      notify(productResult, {
+        successMessage: isEditing ? "Product updated successfully" : "Product added successfully",
+        errorMessage: `Failed to ${isEditing ? "update" : "add"} product`,
+      });
+
       if (productResult.code === "0") {
         const savedProduct = productResult.data;
-        message.success(
-          isEditing
-            ? "Product updated successfully"
-            : "Product added successfully"
-        );
 
         if (
           values.priceCost ||
@@ -209,26 +171,20 @@ const Products: React.FC = () => {
           };
 
           const priceResult = await createPrice(price);
-          if (priceResult.code === "0") {
-            message.success("Price saved successfully");
-          } else {
-            message.error(`Failed to save price: ${priceResult.message}`);
-          }
+
+          notify(priceResult, {
+            successMessage: "Price saved successfully",
+            errorMessage: "Failed to save price",
+          });
         }
 
         setRefreshTrigger((prev) => prev + 1);
         setIsModalOpen(false);
         setCurrentProduct(null);
         form.resetFields();
-      } else {
-        message.error(
-          `Failed to ${isEditing ? "update" : "add"} product: ${productResult.message}`
-        );
       }
     } catch (error) {
-      message.error(
-        "Error: " + (error instanceof Error ? error.message : "Unknown error")
-      );
+      notifyError("Error: " + (error instanceof Error ? error.message : "Unknown error"));
     }
   };
 
@@ -381,6 +337,7 @@ const Products: React.FC = () => {
 
   return (
     <>
+      {contextHolder} {/* Add contextHolder to render notifications */}
       <Row gutter={24}>
         <Col span={24}>
           <Card

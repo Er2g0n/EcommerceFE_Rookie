@@ -11,3 +11,6 @@ export const PRICE_API_URL = `${API_BASE_URL}Price`;
 // ------------------------------
 // apiConfig.ts
 export const CLOUDINARY_BASE_URL = "https://res.cloudinary.com/your-cloud-name/image/upload";
+// ------------------------------
+// call API AUTH
+export const API_AUTH_BASE_URL = "https://localhost:7002/api/"; // Replace with your actual API base URL

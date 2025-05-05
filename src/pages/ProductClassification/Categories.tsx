@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { Card, Col, Row, Button, ConfigProvider, Modal, Form, Input, message } from 'antd';
+import { Card, Col, Row, Button, ConfigProvider, Modal, Form, Input } from 'antd';
 import ListCategory from './Components/ListCategory.Component';
 import { PlusOutlined } from '@ant-design/icons';
 import { useButtonStyles } from '../../../src/hooks/useButtonStyles';
 import { saveProductCategoryByDapper } from '../../services/ProductClassification/Category.Service/productCategoryService';
 import { ProductCategory } from '../../types/ProductClassification/Category/ProductCategory';
+import useNotification from '../../../src/hooks/useNotification'; // Import the new hook
 
 type FieldType = {
   categoryCode: string;
@@ -18,6 +19,7 @@ const Categories: React.FC = () => {
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [isEditing, setIsEditing] = useState(false);
   const [currentCategory, setCurrentCategory] = useState<ProductCategory | null>(null);
+  const { notify, notifyError, contextHolder } = useNotification(); // Add notifyError to destructuring
 
   const handleAddCategory = () => {
     setIsEditing(false);
@@ -54,17 +56,19 @@ const Categories: React.FC = () => {
 
       const result = await saveProductCategoryByDapper(category);
 
+      notify(result, {
+        successMessage: isEditing ? 'Category updated successfully' : 'Category added successfully',
+        errorMessage: `Failed to ${isEditing ? 'update' : 'add'} category`,
+      });
+
       if (result.code === "0") {
-        message.success(isEditing ? 'Category updated successfully' : 'Category added successfully');
         setRefreshTrigger((prev) => prev + 1);
         setIsModalOpen(false);
         setCurrentCategory(null);
         form.resetFields();
-      } else {
-        message.error(`Failed to ${isEditing ? 'update' : 'add'} category: ${result.message}`);
       }
     } catch (error) {
-      message.error('Error: ' + (error instanceof Error ? error.message : 'Unknown error'));
+      notifyError('Error: ' + (error instanceof Error ? error.message : 'Unknown error'));
     }
   };
 
@@ -74,6 +78,7 @@ const Categories: React.FC = () => {
 
   return (
     <>
+      {contextHolder} {/* Add contextHolder to render notifications */}
       <Row gutter={24}>
         <Col span={24}>
           <Card
@@ -133,7 +138,6 @@ const Categories: React.FC = () => {
           >
             <Input placeholder="e.g., Electronics" />
           </Form.Item>
-
 
           <Form.Item wrapperCol={{ offset: 8, span: 16 }}>
             <Button type="primary" htmlType="submit">

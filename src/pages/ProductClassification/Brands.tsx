@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { Card, Col, Row, Button, ConfigProvider, Modal, Form, Input, message } from 'antd';
+import { Card, Col, Row, Button, ConfigProvider, Modal, Form, Input } from 'antd';
 import ListBrand from '../ProductClassification/Components/ListBrand.Component';
 import { PlusOutlined } from '@ant-design/icons';
 import { useButtonStyles } from '../../../src/hooks/useButtonStyles';
 import { saveBrandByDapper } from '../../services/ProductClassification/Brand.Service/brandService';
 import { Brand } from '../../types/ProductClassification/Brand/Brand';
+import useNotification from '../../../src/hooks/useNotification'; // Import the new hook
 
 type FieldType = {
   brandCode: string;
@@ -18,6 +19,7 @@ const Brands: React.FC = () => {
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [isEditing, setIsEditing] = useState(false);
   const [currentBrand, setCurrentBrand] = useState<Brand | null>(null);
+  const { notify, notifyError, contextHolder } = useNotification(); // Add notifyError to destructuring
 
   const handleAddBrand = () => {
     setIsEditing(false);
@@ -55,33 +57,29 @@ const Brands: React.FC = () => {
 
       const result = await saveBrandByDapper(brand);
 
+      notify(result, {
+        successMessage: isEditing ? 'Brand updated successfully' : 'Brand added successfully',
+        errorMessage: `Failed to ${isEditing ? 'update' : 'add'} brand`,
+      });
+
       if (result.code === "0") {
-        message.success(isEditing ? 'Brand updated successfully' : 'Brand added successfully');
         setRefreshTrigger((prev) => prev + 1);
         setIsModalOpen(false);
         setCurrentBrand(null);
         form.resetFields();
-      } else {
-        message.error(`Failed to ${isEditing ? 'update' : 'add'} brand: ${result.message}`);
       }
     } catch (error) {
-      message.error('Error: ' + (error instanceof Error ? error.message : 'Unknown error'));
+      notifyError('Error: ' + (error instanceof Error ? error.message : 'Unknown error'));
     }
   };
 
-
-
-  
   const onFinishFailed = (errorInfo: unknown) => {
     console.log('Failed:', errorInfo);
   };
-  
-  
-
-  
 
   return (
     <>
+      {contextHolder} {/* Add contextHolder to render notifications */}
       <Row gutter={24}>
         <Col span={24}>
           <Card

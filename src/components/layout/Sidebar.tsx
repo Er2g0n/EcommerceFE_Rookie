@@ -15,18 +15,24 @@ const Sidebar = () => {
       selectedKeys={[location.pathname]}
       style={{ height: '100%', borderRight: 0 }}
     >
-      <Menu.Item key="/" icon={<HomeOutlined />}>
-        <Link to="/">Home</Link>
+      <Menu.Item key="/home" icon={<HomeOutlined />}>
+        <Link to="/home">Home</Link>
       </Menu.Item>
-    {/* Product Classification */}
-    {/* Brand */}
+      {/* Product Classification */}
+      {/* Brand */}
       <Menu.Item key="/brands" icon={<ShoppingOutlined />}>
         <Link to="/brands">Brands</Link>
       </Menu.Item>
-      
-    {/* -------------------------------- */}
-    {/* Product Management */}
-    {/* Product */}
+      {/* Category */}
+      <Menu.Item key="/categories" icon={<ShoppingOutlined />}>
+        <Link to="/categories">Categories</Link>
+      </Menu.Item>
+      {/* UnitOfMeasure */}
+      <Menu.Item key="/unitOfMeasures" icon={<ShoppingOutlined />}>
+        <Link to="/unitOfMeasures">UnitOfMeasures</Link>
+      </Menu.Item>
+      {/* Product Management */}
+      {/* Product */}
       <Menu.Item key="/products" icon={<ShoppingOutlined />}>
         <Link to="/products">Products</Link>
       </Menu.Item>
@@ -37,4 +43,4 @@ const Sidebar = () => {
   );
 };
 
-export default Sidebar; 
+export default Sidebar;
