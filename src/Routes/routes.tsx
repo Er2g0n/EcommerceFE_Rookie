@@ -7,6 +7,7 @@ import UnitOfMeasures from "../pages/ProductClassification/UnitOfMeasures";
 import Products from "../pages/ProductManagement/Products";
 import Cart from "../pages/Cart";
 import Login from "../pages/Admin/Login";
+import Users from "../pages/Admin/User";
 
 export const router = createBrowserRouter([
   {
@@ -21,9 +22,15 @@ export const router = createBrowserRouter([
     path: "/",
     element: <MainLayout />, // MainLayout wraps admin pages with Sidebar
     children: [
+     
       {
         path: "home", // Maps to /home
         element: <Home />,
+      },
+        // User Display
+        {
+        path: "users",
+        element: <Users />, // Placeholder for User Display page
       },
       // Product Classification
       // Brand
@@ -47,6 +54,10 @@ export const router = createBrowserRouter([
         path: "products",
         element: <Products />,
       },
+
+
+
+
       // Cart
       {
         path: "cart",

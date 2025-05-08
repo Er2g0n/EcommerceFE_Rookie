@@ -4,6 +4,8 @@ import {
   HomeOutlined,
   ShoppingOutlined,
   ShoppingCartOutlined,
+  UserOutlined,
+  CarOutlined,
 } from '@ant-design/icons';
 
 const Sidebar = () => {
@@ -18,6 +20,12 @@ const Sidebar = () => {
       <Menu.Item key="/home" icon={<HomeOutlined />}>
         <Link to="/home">Home</Link>
       </Menu.Item>
+
+      {/* User Display */}
+      <Menu.Item key="/users" icon={<UserOutlined />}>
+        <Link to="/users">Users</Link>
+      </Menu.Item>
+
       {/* Product Classification */}
       {/* Brand */}
       <Menu.Item key="/brands" icon={<ShoppingOutlined />}>
@@ -33,7 +41,7 @@ const Sidebar = () => {
       </Menu.Item>
       {/* Product Management */}
       {/* Product */}
-      <Menu.Item key="/products" icon={<ShoppingOutlined />}>
+      <Menu.Item key="/products" icon={<CarOutlined />}>
         <Link to="/products">Products</Link>
       </Menu.Item>
       <Menu.Item key="/cart" icon={<ShoppingCartOutlined />}>

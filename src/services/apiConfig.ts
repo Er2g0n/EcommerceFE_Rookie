@@ -1,4 +1,4 @@
-const API_BASE_URL = "https://localhost:7001/api/"; // Replace with your actual API base URL
+const API_BASE_URL = "https://localhost:7001/api/"; // Nash_ApplicationAPI
 
 export const BRAND_API_URL = `${API_BASE_URL}Brand`;
 export const PRODUCT_CATEGORY_API_URL = `${API_BASE_URL}ProductCategory`;
@@ -13,4 +13,4 @@ export const PRICE_API_URL = `${API_BASE_URL}Price`;
 export const CLOUDINARY_BASE_URL = "https://res.cloudinary.com/your-cloud-name/image/upload";
 // ------------------------------
 // call API AUTH
-export const API_AUTH_BASE_URL = "https://localhost:7002/api/"; // Replace with your actual API base URL
+export const API_AUTH_BASE_URL = "https://localhost:7002/api/"; // Nash_AuthAPI
